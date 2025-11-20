@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>База Заказов (Фронт)</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
+        div { background: #fff; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+        h2 { margin-top: 0; }
+        input { margin-bottom: 10px; width: 95%; padding: 8px; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; margin-right: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #eee; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+
+<h1>Панель Управления</h1>
+<p>API-сервер живет здесь же, на <strong><span id="baseUrl">/api</span></strong></p>
+
+<div>
+    <h2>1. Добавить Клиента</h2>
+    <input type="text" id="clientName" placeholder="Имя клиента">
+    <input type="email" id="clientEmail" placeholder="Email клиента">
+    <button onclick="addClient()">Добавить (POST)</button>
+</div>
+
+<div>
+    <h2>2. Добавить Товар</h2>
+    <input type="text" id="productName" placeholder="Название товара">
+    <input type="number" id="productPrice" placeholder="Цена">
+    <button onclick="addProduct()">Добавить (POST)</button>
+</div>
+
+<div>
+    <h2>3. Создать Заказ</h2>
+    <input type="number" id="orderClientId" placeholder="ID Клиента">
+    <input type="number" id="orderProductId" placeholder="ID Товара">
+    <input type="number" id="orderQuantity" placeholder="Количество">
+    <button onclick="createOrder()">Оформить заказ (POST)</button>
+</div>
+
+<div>
+    <h2>4. Найти по ID</h2>
+    <input type="number" id="findId" placeholder="Введите ID для поиска">
+    <button onclick="findData('client')">Найти Клиента (GET)</button>
+    <button onclick="findData('product')">Найти Товар (GET)</button>
+    <button onclick="findData('order')">Найти Заказ (GET)</button>
+</div>
+
+<div>
+    <h2>Результат последнего действия</h2>
+    <pre id="resultArea">...</pre>
+</div>
+
+
+<script>
+    // отдается тем же сервером, что и API!
+    const BASE_URL = '/api';
+
+    const resultArea = document.getElementById('resultArea');
+
+    // --- ФУНКЦИИ ДЛЯ POST-ЗАПРОСОВ (СОЗДАНИЕ) ---
+
+    // 1. Добавление клиента
+    async function addClient() {
+        const body = {
+            name: document.getElementById('clientName').value,
+            email: document.getElementById('clientEmail').value
+        };
+        await sendPostRequest('/clients', body);
+    }
+
+    // 2. Добавление товара
+    async function addProduct() {
+        const body = {
+            name: document.getElementById('productName').value,
+            price: parseFloat(document.getElementById('productPrice').value)
+        };
+        await sendPostRequest('/products', body);
+    }
+
+    // 3. Создание заказа
+    async function createOrder() {
+        const clientId = parseInt(document.getElementById('orderClientId').value);
+        const productId = parseInt(document.getElementById('orderProductId').value);
+        const quantity = parseInt(document.getElementById('orderQuantity').value);
+
+        const body = {
+            clientId: clientId,
+            products: { [productId]: quantity }
+        };
+        await sendPostRequest('/orders', body);
+    }
+
+    async function findData(type) {
+        const id = document.getElementById('findId').value;
+        if (!id) {
+            resultArea.textContent = 'Ошибка: Введите ID для поиска.';
+            return;
+        }
+
+        let endpoint = '';
+        if (type === 'client')  { endpoint = `/clients/${id}`; }
+        if (type === 'product') { endpoint = `/products/${id}`; }
+        if (type === 'order')   { endpoint = `/orders/${id}`; }
+
+        await sendGetRequest(endpoint);
+    }
+
+
+    // Вспомогательная функция для POST-запросов (отправка JSON)
+    async function sendPostRequest(endpoint, body) {
+        resultArea.textContent = 'Отправка POST...';
+        try {
+            const response = await fetch(BASE_URL + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Если сервер вернул ошибку, data будет содержать описание
+                throw new Error(data.message || `Ошибка ${response.status}`);
+            }
+
+            resultArea.textContent = JSON.stringify(data, null, 2);
+
+            if (endpoint === '/clients' || endpoint === '/products') {
+                alert(`Успешно! Новый ID: ${data.id}.`);
+            }
+
+        } catch (error) {
+            console.error('Ошибка при отправке POST:', error);
+            resultArea.textContent = `Ошибка: ${error.message}`;
+        }
+    }
+
+    // Вспомогательная функция для GET-запросов (получение данных)
+    async function sendGetRequest(endpoint) {
+        resultArea.textContent = 'Отправка GET...';
+        try {
+            const response = await fetch(BASE_URL + endpoint, {
+                method: 'GET'
+            });
+
+            const data = await response.json(); // Ждем JSON-ответ
+
+            if (!response.ok) {
+                // Если сервер вернул 404 (Not Found) или другую ошибку
+                throw new Error(data.message || `Ошибка ${response.status}`);
+            }
+
+            resultArea.textContent = JSON.stringify(data, null, 2);
+
+        } catch (error) {
+            console.error('Ошибка при отправке GET:', error);
+            resultArea.textContent = `Ошибка: ${error.message}`;
+        }
+    }
+</script>
+
+</body>
+</html>
